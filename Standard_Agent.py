@@ -12,7 +12,7 @@ import multiprocessing
 import matplotlib.pyplot as plt
 import pickle
 
-env = gym.make("arena", render_mode=None, size = 1, adversary = 2)
+env = gym.make("arena", render_mode=None, size = 1, adversary = 2)    # testing an edit
 
 
 # Agent class
