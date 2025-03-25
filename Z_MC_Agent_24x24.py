@@ -22,13 +22,14 @@ for i in tqdm(range(27)):
     with open(file_path + "/Current-" + str(i) + ".pkl", "rb") as read_file:
         try:
             session_num, temp_values, temp_counts = pickle.load(read_file)
-            print(session_num + 1)
         except:
-            session_num = None
+            session_num = 0
             temp_values = ()
             temp_counts = ()
     save_values += temp_values
     save_counts += temp_counts
+print(session_num + 1)
+
 # Agent class
 
 class GridAgent:
