@@ -17,7 +17,8 @@ env = gym.make("arena", render_mode=None, size = 1, adversary = 2)
 # Network Class
 
 class Network:
-    def __init__(self, layer_shape: list):
+    def __init__(self, layer_shape: list, activation_function: str):
+        self.activation = activation_function
         self.weights = []
         self.shape = layer_shape
         for i in range(len(self.shape) - 1):
@@ -28,8 +29,10 @@ class Network:
         current_activation = input_activation.transpose()
         for layer in self.weights:
             product = np.dot(layer, current_activation)
-            #current_activation = 1/(1 + np.exp(-product))
-            current_activation = np.tanh(product)
+            if self.activation == "Sigmoid":
+                current_activation = 1/(1 + np.exp(-product))
+            if self.activation == "Tanh":
+                current_activation = np.tanh(product)
         return current_activation
         
     def gradient(self, input_activation):
@@ -39,31 +42,35 @@ class Network:
         for layer in self.weights:
             product = np.dot(layer, activations[-1])
             str(product)
-            #activations.append(1/(1 + np.exp(-product)))
-            activations.append(np.tanh(product))
+            if self.activation == "Sigmoid":
+                activations.append(1/(1 + np.exp(-product)))
+            if self.activation == "Tanh":
+                activations.append(np.tanh(product))
             self.means.append(np.mean(activations[-1]))
             self.vars.append(np.var(activations[-1]))
         delta_w = []
         for i in range(len(self.shape) - 1):
             delta_w.append(np.zeros((self.shape[i+1], self.shape[i])))
-        #delta_w[-1][np.argmax(activations[-1])] = (activations[-1].max() - 1) * activations[-1].max() * activations[-2]
-        #delta_a = (activations[-1].max() - 1) * activations[-1].max() * self.weights[-1][np.argmax(activations[-1])]
-        delta_w[-1][np.argmax(activations[-1])] = (1 - activations[-1].max()**2) * activations[-2]
-        delta_a = (1 - activations[-1].max()**2) * self.weights[-1][np.argmax(activations[-1])]
+        if self.activation == "Sigmoid":
+            delta_w[-1][np.argmax(activations[-1])] = (activations[-1].max() - 1) * activations[-1].max() * activations[-2]
+            delta_a = (activations[-1].max() - 1) * activations[-1].max() * self.weights[-1][np.argmax(activations[-1])]
+        if self.activation == "Tanh":
+            delta_w[-1][np.argmax(activations[-1])] = (1 - activations[-1].max()**2) * activations[-2]
+            delta_a = (1 - activations[-1].max()**2) * self.weights[-1][np.argmax(activations[-1])]
         for i in range(-2, -len(self.shape),-1):
             temp = np.zeros((self.shape[i - 1],))
             for j in range(self.shape[i]):
-                #delta_w[i][j] = (activations[i][j] - 1) * activations[i][j] * activations[i - 1] * delta_a[j]
-                #temp += (activations[i][j] - 1) * activations[i][j] * self.weights[i][j] * delta_a[j]
-                delta_w[i][j] = (1 - activations[i][j]**2) * activations[i - 1] * delta_a[j]
-                temp += (1 - activations[i][j]**2) * self.weights[i][j] * delta_a[j]
+                if self.activation == "Sigmoid":
+                    delta_w[i][j] = (activations[i][j] - 1) * activations[i][j] * activations[i - 1] * delta_a[j]
+                    temp += (activations[i][j] - 1) * activations[i][j] * self.weights[i][j] * delta_a[j]
+                if self.activation == "Tanh":
+                    delta_w[i][j] = (1 - activations[i][j]**2) * activations[i - 1] * delta_a[j]
+                    temp += (1 - activations[i][j]**2) * self.weights[i][j] * delta_a[j]
             delta_a = temp
         return delta_w
         
 
-with open("Network.pkl", "rb") as read_file:
-    save_data = pickle.load(read_file)
-print(save_data.weights[0][0])
+
 
 
 # Agent class
@@ -76,15 +83,26 @@ class GridAgent:
         initial_epsilon: float,
         epsilon_decay: float,
         final_epsilon: float,
-        discount_factor: float = 0.95,
+        activation_f: str,
+        discount_factor: float = 0.95
     ):
-        self.network = Network(layer_shape = [6,32,32,9])
+        try:
+            with open(activation_f + "_Network/network.pkl", "rb") as read_file:
+                save_data = pickle.load(read_file)
+        except:
+            save_data = (0, None)
+        if save_data[1] == None:
+            self.network = Network(layer_shape = [6,32,32,9], activation_function = activation_f)
+        else:
+            self.network = save_data[1]
         self.learning_rate = learning_rate
         self.discount_factor = discount_factor
-        self.epsilon = initial_epsilon
+        self.epsilon = max(final_epsilon, initial_epsilon - (save_data[0] if save_data != None else 0) * n_episodes * epsilon_decay)
         self.epsilon_decay = epsilon_decay
         self.final_epsilon = final_epsilon
         self.performance = []
+        self.n = save_data[0] + 1
+        print(self.n)
         
 # outputs an action given the current observation
     def get_action(self, env, obs: list[float,float,float,float,float,float]) -> int:
@@ -118,10 +136,11 @@ class GridAgent:
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
 
 learning_rate = 0.01
-n_episodes = 100
-epsilon_decay = 2/n_episodes
+n_episodes = 100#0000
+epsilon_decay = 1/14000000
 final_epsilon = 0.1
 start_epsilon = 1
+activation = "Sigmoid"
 
 agent = GridAgent(
     env=env,
@@ -129,8 +148,8 @@ agent = GridAgent(
     initial_epsilon=start_epsilon,
     epsilon_decay=epsilon_decay,
     final_epsilon=final_epsilon,
+    activation_f = activation
 )
-print()
 
 
 if __name__ == '__main__':
@@ -158,9 +177,6 @@ if __name__ == '__main__':
     print(agent.network.feed(env.reset()[1]["NN"]))
     print(np.mean(agent.network.means))
     print(agent.network.vars)
-    with open("Network.pkl", 'wb') as created_file:
-        pickle.dump(agent.network, created_file)
-    print(agent.network.weights[0][0])
     x = range(n_episodes)
     y = agent.performance
     fig, ax = plt.subplots()
@@ -168,4 +184,11 @@ if __name__ == '__main__':
     ax.plot(x, y, linewidth=2.0)
 
     ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes//2, n_episodes//2))
-    plt.savefig("Performance.png")
+    plt.savefig(activation + "_Network/Performance" + str(agent.n) + ".png")
+    print("done file 1")
+    with open(activation + "_Network/network.pkl", 'wb') as created_file:
+        pickle.dump((agent.n, agent.network), created_file)
+    print("done file 2")
+    with open(activation + "_Network/Session" + str(agent.n) + ".pkl", 'wb') as created_file:
+        pickle.dump(agent.performance, created_file)
+    print("done file 3")
