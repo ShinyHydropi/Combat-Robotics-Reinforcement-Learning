@@ -88,7 +88,7 @@ class NetworkAgent:
         except:
             save_data = (0, None)
         if save_data[1] == None:
-            self.network = Network(layer_shape = [6,32,32,9], activation_function = activation_f) # if there was no saved network, a new one is created
+            self.network = Network(layer_shape = [6,4,4,9], activation_function = activation_f) # if there was no saved network, a new one is created
         else:
             self.network = save_data[1]
         self.learning_rate = learning_rate
