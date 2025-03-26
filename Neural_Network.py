@@ -1,14 +1,8 @@
 from __future__ import annotations
-
-from collections import defaultdict
-
 import numpy as np
 from tqdm import tqdm
-import time
 import gymnasium as gym
 import arena
-import math
-import multiprocessing
 import matplotlib.pyplot as plt
 import pickle
 
@@ -21,10 +15,11 @@ class Network:
         self.activation = activation_function
         self.weights = []
         self.shape = layer_shape
-        for i in range(len(self.shape) - 1):
+        for i in range(len(self.shape) - 1): # initialize weights with a normal Xavier distribution
             limit = np.sqrt(2/(self.shape[i]+ self.shape[i + 1]))
             self.weights.append(np.random.normal(scale=limit, size=(self.shape[i + 1], self.shape[i])))
     
+    # outputs the result of matrix multiplication of the layers with the input
     def feed(self, input_activation):
         current_activation = input_activation.transpose()
         for layer in self.weights:
@@ -34,12 +29,13 @@ class Network:
             if self.activation == "Tanh":
                 current_activation = np.tanh(product)
         return current_activation
-        
+    
+    # compute the gradient for a given state
     def gradient(self, input_activation):
-        self.means = []
+        self.means = [] # mean and variance is collected for evaluation of the network's performance
         self.vars = []
         activations = [input_activation.transpose()]
-        for layer in self.weights:
+        for layer in self.weights: # a list of activations is saved for computing partial derivatives
             product = np.dot(layer, activations[-1])
             str(product)
             if self.activation == "Sigmoid":
@@ -51,7 +47,7 @@ class Network:
         delta_w = []
         for i in range(len(self.shape) - 1):
             delta_w.append(np.zeros((self.shape[i+1], self.shape[i])))
-        if self.activation == "Sigmoid":
+        if self.activation == "Sigmoid": # weights and activations are used to compute the partial derivatives of the last layer
             delta_w[-1][np.argmax(activations[-1])] = (activations[-1].max() - 1) * activations[-1].max() * activations[-2]
             delta_a = (activations[-1].max() - 1) * activations[-1].max() * self.weights[-1][np.argmax(activations[-1])]
         if self.activation == "Tanh":
@@ -59,7 +55,7 @@ class Network:
             delta_a = (1 - activations[-1].max()**2) * self.weights[-1][np.argmax(activations[-1])]
         for i in range(-2, -len(self.shape),-1):
             temp = np.zeros((self.shape[i - 1],))
-            for j in range(self.shape[i]):
+            for j in range(self.shape[i]): # back propagation is used to compute the gradient of the remaining layers
                 if self.activation == "Sigmoid":
                     delta_w[i][j] = (activations[i][j] - 1) * activations[i][j] * activations[i - 1] * delta_a[j]
                     temp += (activations[i][j] - 1) * activations[i][j] * self.weights[i][j] * delta_a[j]
@@ -75,7 +71,7 @@ class Network:
 
 # Agent class
 
-class GridAgent:
+class NetworkAgent:
     def __init__(
         self,
         env,
@@ -86,13 +82,13 @@ class GridAgent:
         activation_f: str,
         discount_factor: float = 0.95
     ):
-        try:
+        try: # a previously saved network is attempted to be read
             with open(activation_f + "_Network/network.pkl", "rb") as read_file:
                 save_data = pickle.load(read_file)
         except:
             save_data = (0, None)
         if save_data[1] == None:
-            self.network = Network(layer_shape = [6,32,32,9], activation_function = activation_f)
+            self.network = Network(layer_shape = [6,32,32,9], activation_function = activation_f) # if there was no saved network, a new one is created
         else:
             self.network = save_data[1]
         self.learning_rate = learning_rate
@@ -104,22 +100,20 @@ class GridAgent:
         self.n = save_data[0] + 1
         print(self.n)
         
-# outputs an action given the current observation
+    # outputs an action given the current observation
     def get_action(self, env, obs: list[float,float,float,float,float,float]) -> int:
         if np.random.random() < self.epsilon:
             return env.action_space.sample()
-
-# with probability (1 - epsilon) act greedily (exploit)
-        else:
+        else: # with probability (1 - epsilon) act greedily (exploit)
             return int(np.argmax(self.network.feed(obs)))
 
-# updates Q-values at the end of an episode
+    # updates Q-values at the end of an episode
     def update(
         self, movelog, reward: float
     ):
         returns = [reward]
         for move in movelog:
-            returns.insert(0,self.discount_factor * returns[0])
+            returns.insert(0,self.discount_factor * returns[0]) # list of returns is calculated to determine the weight updates
         self.performance.append(reward + (0 if len(self.performance) == 0 else self.performance[len(self.performance)-1]))
         updates = []
         for i in range(len(self.network.shape) - 1):
@@ -127,22 +121,20 @@ class GridAgent:
         for m in range(len(movelog)):
             gradient = self.network.gradient(movelog[m][0])
             for layer in range(len(self.network.weights)):
-                updates[layer] += self.learning_rate * (returns[m] - self.network.feed(movelog[m][0]).max()) * gradient[layer]
+                updates[layer] += self.learning_rate * (returns[m] - self.network.feed(movelog[m][0]).max()) * gradient[layer] # updates are computed with Monte Carlo methods
         for layer in range(len(self.network.weights)):
             self.network.weights[layer] += updates[layer]
-
-
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
 
 learning_rate = 0.01
-n_episodes = 100#0000
+n_episodes = 1000000
 epsilon_decay = 1/14000000
 final_epsilon = 0.1
 start_epsilon = 1
 activation = "Sigmoid"
 
-agent = GridAgent(
+agent = NetworkAgent(
     env=env,
     learning_rate = learning_rate,
     initial_epsilon=start_epsilon,
@@ -154,8 +146,7 @@ agent = GridAgent(
 
 if __name__ == '__main__':
     tot_epi_len = 0
-    # simulates episodes
-    for episode in tqdm(range(n_episodes)):
+    for episode in tqdm(range(n_episodes)): # simulates episodes
     
         info = env.reset()[1]
         done = False
@@ -184,11 +175,11 @@ if __name__ == '__main__':
     ax.plot(x, y, linewidth=2.0)
 
     ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes//2, n_episodes//2))
-    plt.savefig(activation + "_Network/Performance" + str(agent.n) + ".png")
+    plt.savefig(activation + "_Network/Performance" + str(agent.n) + ".png") # saves a graph of the agents cumulative performance in this training session
     print("done file 1")
     with open(activation + "_Network/network.pkl", 'wb') as created_file:
-        pickle.dump((agent.n, agent.network), created_file)
+        pickle.dump((agent.n, agent.network), created_file) # saves the current session number and network object
     print("done file 2")
     with open(activation + "_Network/Session" + str(agent.n) + ".pkl", 'wb') as created_file:
-        pickle.dump(agent.performance, created_file)
+        pickle.dump(agent.performance, created_file) # saves the cumulative performance from this session of training
     print("done file 3")

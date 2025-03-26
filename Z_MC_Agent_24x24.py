@@ -18,7 +18,7 @@ file_path = "/home/freddy/AICRL/Agent_" + str(8*size) + "x" + str(8*size)
 env = gym.make("arena", render_mode=None, size = size, adversary = 1)
 save_values = ()
 save_counts = ()
-for i in tqdm(range(27)):
+for i in tqdm(range(27)): # attempt to read previously saved Q-table and counts
     with open(file_path + "/Current-" + str(i) + ".pkl", "rb") as read_file:
         try:
             session_num, temp_values, temp_counts = pickle.load(read_file)
@@ -43,10 +43,10 @@ class GridAgent:
     ):
         h = env.observation_space["agent"].high[0]+1
         k = env.observation_space["agent"].high[2]+1
-        if session_num != None:
+        if session_num != None: # loads a Q-table if one is saved
             self.q_values = {(a,b,c,d,e,f):save_values[f + k*e + k*h*d + k*h*h*c + k*k*h*h*b + k*k*h**3*a] for a in tqdm(range(h)) for b in range(h) for c in range(k) for d in range(h) for e in range(h) for f in range(k)}
             self.counts = {(a,b,c,d,e,f):save_counts[f + k*e + k*h*d + k*h*h*c + k*k*h*h*b + k*k*h**3*a] for a in tqdm(range(h)) for b in range(h) for c in range(k) for d in range(h) for e in range(h) for f in range(k)}
-        else:
+        else: # creates a blank Q-table if none are saved
             print(1)
             self.q_values = {(a,b,c,d,e,f):np.zeros(env.action_space.n) for a in tqdm(range(h)) for b in range(h) for c in range(k) for d in range(h) for e in range(h) for f in range(k)}
             self.counts = {(a,b,c,d,e,f):np.zeros(env.action_space.n) for a in tqdm(range(h)) for b in range(h) for c in range(k) for d in range(h) for e in range(h) for f in range(k)}
@@ -58,22 +58,20 @@ class GridAgent:
         self.final_epsilon = final_epsilon
         self.performance = []
         
-# outputs an action given the current observation
+    # outputs an action given the current observation
     def get_action(self, env, obs: dict[str: list[int,int,int]]) -> int:
         if np.random.random() < self.epsilon:
             return env.action_space.sample()
-
-# with probability (1 - epsilon) act greedily (exploit)
-        else:
+        else: # with probability (1 - epsilon) act greedily (exploit)
             return int(np.argmax(self.q_values[(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])]))
 
-# updates Q-values at the end of an episode
+    # updates Q-values at the end of an episode
     def update(
         self, movelog: list[tuple[int,int,int,int,int,int], int], reward: float
     ):
         reward_total = reward
         self.performance.append(reward + (0 if len(self.performance) == 0 else self.performance[len(self.performance)-1]))
-        for move in movelog:
+        for move in movelog: # the Q-value for each state-action pair is updated according to Monte Carlo methods
             self.q_values[move[0]][move[1]] = (
                 (self.q_values[move[0]][move[1]] * self.counts[move[0]][move[1]] + reward_total) / (self.counts[move[0]][move[1]] + 1)
             )
@@ -85,7 +83,7 @@ class GridAgent:
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
 
 
-n_episodes = 1000000
+n_episodes = 1000000 # parameters for learning set for learning 1,000,000 episode at a time for 28 sessions
 epsilon_decay = 1/14000000
 final_epsilon = 0.1
 start_epsilon = max(final_epsilon, 1 - (session_num if session_num != None else 0) * n_episodes * epsilon_decay)
@@ -100,9 +98,7 @@ agent = GridAgent(
 if __name__ == '__main__':
     n = session_num if session_num != None else 0
     tot_epi_len = 0
-    # simulates episodes
-    for episode in tqdm(range(n_episodes)):
-    
+    for episode in tqdm(range(n_episodes)): # simulates episodes
         obs = env.reset()[0]
         done = False
         movelog = []
@@ -130,16 +126,16 @@ if __name__ == '__main__':
 
     ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, 100000), ylim=(-500000, 500000))
     n += 1
-    plt.savefig(file_path + "/Performance" + str(n) +".png")
+    plt.savefig(file_path + "/Performance" + str(n) +".png") # saves a graph of the agents cumulative performance in this training session
     print("done file 1")
-    for i in range(27):
+    for i in range(27): # Q-table is saved in 27 .pkl files due to size constraints
         agent_values = tuple(agent.q_values.values())[i*3*2**18:(i+1)*3*2**18]
         agent_counts = tuple(agent.counts.values())[i*3*2**18:(i+1)*3*2**18]
         with open(file_path + "/Current-" + str(i) + ".pkl", 'wb') as created_file:
             pickle.dump((n, agent_values, agent_counts), created_file)
         print("done file 2-" + str(i))
     with open(file_path + "/Session" + str(n) + ".pkl", 'wb') as created_file:
-        pickle.dump(agent.performance, created_file)
+        pickle.dump(agent.performance, created_file) # saves the cumulative performance from this session of training
     print("done file 3")
     end = time.time()
-    print((end-start)/3600)
+    print((end-start)/3600) # prints time elapsed in hours
