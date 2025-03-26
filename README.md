@@ -1,0 +1,1 @@
+This repository contains the python files used for my capstone project to apply reinforcement learning to combat robotics (BattleBots). For this project, I used the Gymnasium library to build an environment for each agent to learn in.
