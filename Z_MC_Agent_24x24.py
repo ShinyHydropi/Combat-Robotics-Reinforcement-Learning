@@ -1,14 +1,10 @@
 from __future__ import annotations
-
-from collections import defaultdict
-
 import numpy as np
 from tqdm import tqdm
 import time
 import gymnasium as gym
 import arena
 import math
-import multiprocessing
 import matplotlib.pyplot as plt
 import pickle
 

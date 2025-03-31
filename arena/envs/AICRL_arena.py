@@ -6,6 +6,7 @@ import numpy as np
 import time
 import functools
 import random
+import keyboard
 
 class Actions(Enum):
     noT_fullSL = 0
@@ -20,7 +21,7 @@ class Actions(Enum):
 
 
 class ArenaEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
     
     def __init__(self, render_mode = None, size = 1, adversary = 0):
         self.HYPOT = np.hypot(3.9105, 4.625)
@@ -111,9 +112,25 @@ class ArenaEnv(gym.Env):
             adv_act = self.aggressive_select()
         elif self.current_adversary == 1:
             adv_act = self.defensive_select()
+        elif self.current_adversary == 3:
+            kb = keyboard.get_hotkey_name().split("+")
+            direction = []
+            if "left" in kb:
+                direction.append(0)
+            if "up" in kb:
+                direction.append(2)
+            if "right" in kb:
+                direction.append(4)
+            if len(direction) > 0:
+                adv_act = [2,6,8,7,3][int(np.average(direction))]
+            else:
+                adv_act = None
+                
         for _ in range(20):
-            self._adversary_location = self.translate(self._adversary_location, adv_act, 20)
-            self._agent_location = self.translate(self._agent_location, action, 20)
+            if adv_act != None:
+                self._adversary_location = self.translate(self._adversary_location, adv_act, 20)
+            if action != None:
+                self._agent_location = self.translate(self._agent_location, action, 20)
             if self.render_mode == "human":
                 self._render_frame()
             reward, terminated = self.collision_check()
@@ -143,7 +160,7 @@ class ArenaEnv(gym.Env):
         return r >= np.hypot(xp - xc, yp - yc)
     
     
-    def line_circle(self,x1: float, y1: float, x2: float, y2: float, xc: float, yc: float, r: float):
+    def line_circle(self, x1: float, y1: float, x2: float, y2: float, xc: float, yc: float, r: float):
         if (self.circle_point(xc, yc, r, x1, y1) or self.circle_point(xc, yc, r, x2, y2)):
             return True
         dot = (((xc - x1) * (x2 - x1)) + ((yc - y1) * (y2 - y1))) / ((x1 - x2)**2 + (y1 - y2)**2)
@@ -208,7 +225,6 @@ class ArenaEnv(gym.Env):
             if (min(temp_angle, 2*np.pi - temp_angle) < angle):
                 angle = min(temp_angle, 2*np.pi - temp_angle)
                 adv_act = index
-            
         return adv_act
             
     def render(self):
