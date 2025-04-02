@@ -26,6 +26,22 @@ def translate(robot, action, path_steps = 1):
     
 def disk(robot, scale = 1):
     return (scale * (robot[0] - 3.2 * np.sin(robot[2])), scale * (robot[1] - 3.2 * np.cos(robot[2])))
+    
+def line_point(x1: float, y1: float, x2: float, y2: float, xp: float, yp: float):
+    return 0.1 > abs(np.hypot(x1 - xp, y1 - yp) + np.hypot(x2 - xp, y2 - yp) - np.hypot(x1 - x2, y1 - y2))
+    
+    
+def circle_point(xc: float, yc: float, r: float, xp: float, yp: float):
+    return r >= np.hypot(xp - xc, yp - yc)
+    
+    
+def line_circle(x1: float, y1: float, x2: float, y2: float, xc: float, yc: float, r: float):
+    if (circle_point(xc, yc, r, x1, y1) or circle_point(xc, yc, r, x2, y2)):
+        return True
+    dot = (((xc - x1) * (x2 - x1)) + ((yc - y1) * (y2 - y1))) / ((x1 - x2)**2 + (y1 - y2)**2)
+    xnear = x1 + dot * (x2 - x1)
+    ynear = y1 + dot * (y2 - y1)
+    return circle_point(xc, yc, r, xnear, ynear) and line_point(x1, y1, x2, y2, xnear, ynear)
 
 #Collect policies
 policies = []
@@ -43,8 +59,8 @@ h,k = 24,8
 policies.append({(a,b,c,d,e,f):save_values[f + k*e + k*h*d + k*h*h*c + k*k*h*h*b + k*k*h**3*a] for a in tqdm(range(h)) for b in range(h) for c in range(k) for d in range(h) for e in range(h) for f in range(k)})
 
 
-#Chasing policy action selection
-def chasing_select(pos):
+#Aggressive policy action selection
+def Aggressive_select(pos):
     agent_location = pos["agent"]
     adversary_location = pos["adversary"]
     dist = 2000
@@ -57,18 +73,41 @@ def chasing_select(pos):
             action = index
     return action
 
+
+def defensive_select(pos):
+    agent_location = pos["agent"]
+    adversary_location = pos["adversary"]
+    test = translate(adversary_location, 8)
+    if (adversary_location != test).any() and line_circle(adversary_location[0], adversary_location[1], test[0], test[1], agent_location[0], agent_location[1], 3.9105):
+        test = translate(adversary_location, 8, 20)
+    temp_angle = np.absolute(2*np.pi - (test[2]+np.pi/2)%(2*np.pi) - np.arctan2(agent_location[1] - test[1], agent_location[0] - test[0])%(2*np.pi))
+    angle = min(temp_angle, 2*np.pi - temp_angle)
+    action = 8
+    for index in range(len(action_to_direction) - 1):
+        test = translate(adversary_location, index)
+        temp_angle = np.absolute(2*np.pi - (test[2]+np.pi/2)%(2*np.pi) - np.arctan2(agent_location[1] - test[1], agent_location[0] - test[0])%(2*np.pi))
+        if (min(temp_angle, 2*np.pi - temp_angle) < angle):
+            angle = min(temp_angle, 2*np.pi - temp_angle)
+            action = index            
+    return action
+
+control = ""
+while not control in ["aggressive", "defensive"]:
+    control = input("Control policy (aggressive, defensive): ")
+
 if __name__ == '__main__':
-    #Collect chasing policy performance
+    #Collect control policy performance
     performance = [[],[],[],[]]
-    infos = [[],[],[],[]]
     info = env.reset()[1]
     print(info)
     seed = env.np_random_seed
     for episode in tqdm(range(1000)):
-        infos[0].append(info["agent"][0])
         done = False
         while not done:
-            action = chasing_select(info)
+            if control == "aggressive":
+                action = aggressive_select(info)
+            elif control == "defensive":
+                action = defensive_select(info)
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
         performance[0].append(reward)
@@ -81,8 +120,7 @@ if __name__ == '__main__':
         current_policy = policies[agent]
         obs, info = env.reset(seed = seed)
         print(info)
-        for episode in tqdm(range(1000)):#000)):
-            infos[agent + 1].append(info["agent"][0])
+        for episode in tqdm(range(1000)):
             done = False
             while not done:
                 action = int(np.argmax(current_policy[(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])]))
@@ -93,13 +131,8 @@ if __name__ == '__main__':
             
     #Transpose the results
     data1 = [list(row) for row in zip(*performance)]
-    data2 = [list(row) for row in zip(*infos)]
-    data1.insert(0,["Aggressive", "8x8", "16x16", "24x24"])
-    data2.insert(0,["Aggressive", "8x8", "16x16", "24x24"])
+    data1.insert(0,[control, "8x8", "16x16", "24x24"])
     #Save results
     with open("/home/freddy/AICRL/results.csv", 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(data1)
-    with open("/home/freddy/AICRL/infos.csv", 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerows(data2)

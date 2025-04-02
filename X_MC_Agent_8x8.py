@@ -7,6 +7,7 @@ import gymnasium as gym
 import arena
 import matplotlib.pyplot as plt
 import pickle
+import math
 
 start = time.time()
 size = 1

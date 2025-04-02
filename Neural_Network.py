@@ -5,6 +5,7 @@ import gymnasium as gym
 import arena
 import matplotlib.pyplot as plt
 import pickle
+import math
 
 env = gym.make("arena", render_mode=None, size = 1, adversary = 2)
 
@@ -88,7 +89,7 @@ class NetworkAgent:
         except:
             save_data = (0, None)
         if save_data[1] == None:
-            self.network = Network(layer_shape = [6,32,32,9], activation_function = activation_f) # if there was no saved network, a new one is created
+            self.network = Network(layer_shape = [6,4,4,9], activation_function = activation_f) # if there was no saved network, a new one is created
         else:
             self.network = save_data[1]
         self.learning_rate = learning_rate
@@ -128,8 +129,8 @@ class NetworkAgent:
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
 
 learning_rate = 0.01
-n_episodes = 1000000
-epsilon_decay = 1/14000000
+n_episodes = 100000#0
+epsilon_decay = 1/50000#14000000
 final_epsilon = 0.1
 start_epsilon = 1
 activation = "Sigmoid"
@@ -174,7 +175,7 @@ if __name__ == '__main__':
 
     ax.plot(x, y, linewidth=2.0)
 
-    ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes//2, n_episodes//2))
+    ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes, n_episodes))
     plt.savefig(activation + "_Network/Performance" + str(agent.n) + ".png") # saves a graph of the agents cumulative performance in this training session
     print("done file 1")
     with open(activation + "_Network/network.pkl", 'wb') as created_file:
