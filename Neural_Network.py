@@ -7,7 +7,12 @@ import matplotlib.pyplot as plt
 import pickle
 import math
 
-env = gym.make("arena", render_mode=None, size = 1, adversary = 2)
+adv_type = ""
+while not adv_type in ["aggressive", "defensive", "mixed", "human"]:
+    adv_type = input("Adversary policy (aggressive, defensive, mixed, human): ")
+adversary = ["aggressive", "defensive", "mixed", "human"].index(adv_type)
+env = gym.make("arena", render_mode="human" if adversary == 3 else None, size = 1, adversary = adversary)
+
 
 # Network Class
 
@@ -129,11 +134,19 @@ class NetworkAgent:
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
 
 learning_rate = 0.01
-n_episodes = 100000#0
+n_episodes = 0
+while n_episodes < 10:
+    try:
+        n_episodes = int(input("Number of episodes (integer greater than 9): "))
+    except:
+        pass
+#n_episodes = 100000#0
 epsilon_decay = 1/50000#14000000
 final_epsilon = 0.1
 start_epsilon = 1
-activation = "Sigmoid"
+activation = ""
+while not activation in ["Sigmoid", "Tanh"]:
+    activation = input("Activation function (Sigmoid, Tanh): ")
 
 agent = NetworkAgent(
     env=env,
