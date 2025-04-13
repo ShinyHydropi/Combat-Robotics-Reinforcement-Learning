@@ -8,11 +8,14 @@ import time
 import gymnasium as gym
 import arena
 import math
-import multiprocessing
 import matplotlib.pyplot as plt
 import pickle
 
-env = gym.make("arena", render_mode=None, size = 1, adversary = 2)
+adv_type = ""
+while not adv_type in ["aggressive", "defensive", "mixed", "human"]:
+    adv_type = input("Adversary policy (aggressive, defensive, mixed, human): ")
+adversary = ["aggressive", "defensive", "mixed", "human"].index(adv_type)
+env = gym.make("arena", render_mode="human" if adversary == 3 else None, size = 1, adversary = adversary)
 
 
 # Agent class
@@ -48,7 +51,7 @@ class GridAgent:
         self, movelog: list[tuple[int,int,int,int,int,int], int], reward: float
     ):
         reward_total = reward
-        self.performance.append(reward + (0 if len(self.performance) == 0 else self.performance[len(self.performance)-1]))
+        self.performance.append(reward + (0 if len(self.performance) == 0 else self.performance[-1]))
         for move in movelog:
             self.q_values[move[0]][move[1]] = (
                 (self.q_values[move[0]][move[1]] * self.counts[move[0]][move[1]] + reward_total) / (self.counts[move[0]][move[1]] + 1)
@@ -60,8 +63,12 @@ class GridAgent:
     def decay_epsilon(self):
         self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
 
-
-n_episodes = 100000
+n_episodes = 0
+while n_episodes < 10:
+    try:
+        n_episodes = int(input("Number of episodes (integer greater than 9): "))
+    except:
+        pass
 epsilon_decay = 2/n_episodes
 final_epsilon = 0.1
 start_epsilon = 1
@@ -102,5 +109,5 @@ if __name__ == '__main__':
 
     ax.plot(x, y, linewidth=2.0)
 
-    ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes//2, n_episodes//2))
+    ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes, n_episodes))
     plt.savefig("Performance.png")

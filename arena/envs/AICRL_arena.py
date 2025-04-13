@@ -23,7 +23,7 @@ class Actions(Enum):
 class ArenaEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 100}
     
-    def __init__(self, render_mode = None, size = 1, adversary = 0):
+    def __init__(self, render_mode = None, size = 1, adversary = 0, fps = 100):
         self.HYPOT = np.hypot(3.9105, 4.625)
         self.RADS = np.arctan2(3.9105, 4.625)
         self.window_size = 1000  # The size of the PyGame window
@@ -31,6 +31,7 @@ class ArenaEnv(gym.Env):
         self.size = size
         self.adversary_type = adversary
         self.current_adversary = adversary
+        self.fps = fps
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2,
@@ -84,7 +85,7 @@ class ArenaEnv(gym.Env):
         "time": self._time_steps,"agent": self._agent_location, "adversary": self._adversary_location, "NN": np.array([self._agent_location[0] / 96, self._agent_location[1] / 96, self._agent_location[2] / (2*np.pi), self._adversary_location[0] / 96, self._adversary_location[1] / 96, self._adversary_location[2] / (2*np.pi)])
         }
 
-    def reset(self, seed=None, options=None):
+    def reset(self, seed=None, options=""):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
@@ -102,8 +103,10 @@ class ArenaEnv(gym.Env):
         if self.adversary_type == 2:
             self.current_adversary = self.np_random.integers(0,2)
 
-        if self.render_mode == "human":
+        if self.render_mode == "human" and options == "":
             self._render_frame()
+        else:
+            self.text = options
 
         return self._get_obs(), self._get_info()
 
@@ -132,7 +135,7 @@ class ArenaEnv(gym.Env):
             if action != None:
                 self._agent_location = self.translate(self._agent_location, action, 20)
             if self.render_mode == "human":
-                self._render_frame()
+                self._render_frame(self.text)
             reward, terminated = self.collision_check()
             if terminated:
                 break
@@ -228,10 +231,10 @@ class ArenaEnv(gym.Env):
         return adv_act
             
     def render(self):
-        if self.render_mode == "rgb_array":
-            return self._render_frame()
+        if self.render_mode == "rgb_array" or self.render_mode == "human":
+            return self._render_frame(self.text)
 
-    def _render_frame(self):
+    def _render_frame(self, text):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
@@ -245,6 +248,7 @@ class ArenaEnv(gym.Env):
             adversary_corners.append(self.corner(self._adversary_location, i / 2, 10.417))
         
         canvas = pygame.Surface((self.window_size, self.window_size))
+        text = pygame.font.Font(size = 100).render(text, False, "black")
         canvas.fill("grey")
         
         pygame.draw.lines(canvas, "blue", True, agent_corners, 3)
@@ -255,13 +259,14 @@ class ArenaEnv(gym.Env):
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
+            self.window.blit(text, text.get_rect(center = (500,500)))
             pygame.event.pump()
             pygame.display.update()
 
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to
             # keep the framerate stable.
-            self.clock.tick(self.metadata["render_fps"])
+            self.clock.tick(self.fps)
         else:  # rgb_array
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
