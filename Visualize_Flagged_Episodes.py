@@ -1,4 +1,4 @@
-import csv
+import csv #imports
 import numpy as np
 from tqdm import tqdm
 import time
@@ -7,9 +7,9 @@ import arena
 import pickle
     
 
-env = gym.make("arena", render_mode=None, adversary = 1)
+env = gym.make("arena", render_mode="human", adversary = 1, fps = 4)#makes arena environment with human visibility, defensive adversary, and 4 fps
 
-action_to_direction = {
+action_to_direction = {#list of action-direction data
     0: np.array([3.334605707, 0, 0]),
     1: np.array([-3.334605707, 0, np.pi]),
     2: np.array([2.246407457, 1.139676331, 0]),
@@ -21,22 +21,25 @@ action_to_direction = {
     8: np.array([0, 22.78940029, 0])
 }
 
-def translate(robot, action, path_steps = 1):
+with open("Flagged_Episodes.pkl", "rb") as read_file:
+    seed, flags, control = pickle.load(read_file)#opens saved seed, flagged episodes, and control policy
+
+def translate(robot, action, path_steps = 1):#moves the object based on the action selected
     direction = action_to_direction[action] * np.array([1 / path_steps, 1, 1])
     return np.clip(np.array([robot[0] + direction[1] / path_steps * np.cos(robot[2] + np.pi/2), robot[1] - direction[1] / path_steps * np.sin(robot[2] + np.pi/2), robot[2]]) if direction[0] == 0 else np.array([robot[0] + direction[1] * (np.cos(direction[0] + robot[2] + direction[2]) - np.cos(robot[2] + direction[2])), robot[1] + direction[1] * -(np.sin(direction[0] + robot[2] + direction[2]) - np.sin(robot[2] + direction[2])), (robot[2] + direction[0])%(2 * np.pi)]), [6.45, 6.45, 0], [89.55, 89.55, 2 * np.pi])
     
-def disk(robot, scale = 1):
+def disk(robot, scale = 1):#spinner center
     return (scale * (robot[0] - 3.2 * np.sin(robot[2])), scale * (robot[1] - 3.2 * np.cos(robot[2])))
     
-def line_point(x1: float, y1: float, x2: float, y2: float, xp: float, yp: float):
+def line_point(x1: float, y1: float, x2: float, y2: float, xp: float, yp: float):#line intersecting point
     return 0.1 > abs(np.hypot(x1 - xp, y1 - yp) + np.hypot(x2 - xp, y2 - yp) - np.hypot(x1 - x2, y1 - y2))
     
     
-def circle_point(xc: float, yc: float, r: float, xp: float, yp: float):
+def circle_point(xc: float, yc: float, r: float, xp: float, yp: float):#circle intersecting point
     return r >= np.hypot(xp - xc, yp - yc)
     
     
-def line_circle(x1: float, y1: float, x2: float, y2: float, xc: float, yc: float, r: float):
+def line_circle(x1: float, y1: float, x2: float, y2: float, xc: float, yc: float, r: float):#
     if (circle_point(xc, yc, r, x1, y1) or circle_point(xc, yc, r, x2, y2)):
         return True
     dot = (((xc - x1) * (x2 - x1)) + ((yc - y1) * (y2 - y1))) / ((x1 - x2)**2 + (y1 - y2)**2)
@@ -93,19 +96,21 @@ def defensive_select(pos):
     return action
 
 
-control = ""
-while not control in ["aggressive", "defensive"]:
-    control = input("Control policy (aggressive, defensive): ")
+def set_episode(seed, n, policy, agent):
+    env = gym.make("arena", render_mode="human", adversary = 1, size = agent, fps = 4)
+    obs, info = env.reset(seed = seed, options = policy)
+    for i in range(n):
+        obs, info = env.reset(options = policy)
+    env.render()
+    print(n,agent)
+    return obs, info, env
+
 
 if __name__ == '__main__':
-    #Collect control policy performance
-    performance = [[],[],[],[]]
-    info = env.reset()[1]
-    infos = []
-    print(info)
-    seed = env.np_random_seed
-    for episode in tqdm(range(1000)):
-        infos.append(info)
+    for agent in tqdm(range(1,4)):#episode, agent, points in tqdm(flags):
+        env.close()
+        obs, info, env = set_episode(seed, 0, control, agent)
+        time.sleep(2)
         done = False
         while not done:
             if control == "aggressive":
@@ -114,47 +119,17 @@ if __name__ == '__main__':
                 action = defensive_select(info)
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
-        performance[0].append(reward)
-        info = env.reset()[1]
-    
-    #Collect learned policy performance
-    for agent in range(3):
-        env.close()
-        env = gym.make("arena", render_mode="human", size = agent + 1, fps = 4)
-        #current_policy = policies[agent]
-        obs, info = env.reset(seed = seed)
-        for episode in tqdm(range(1000)):
-            if episode == 1:
-                env = gym.make("arena", render_mode=None, size = agent + 1, fps =4)
-                env.reset(seed=seed)
-                obs, info = env.reset()
-            done = False
-            while not done:
-                if episode == 0:
-                    print(obs)
-                    print(policies[agent][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])])
-                    print(int(np.argmax(policies[agent][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])])))
-                action = int(np.argmax(policies[agent][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])]))
-                obs, reward, terminated, truncated, info = env.step(action)
-                done = terminated or truncated
-            performance[agent + 1].append(reward)
-            obs, info = env.reset()
             
-    #Transpose the results
-    performance.append(infos)
-    data1 = [list(row) for row in zip(*performance)]
-    #Create a list of important episodes
-    flags = []
-    for i in tqdm(range(1000)):
-        for j in range(1,4):
-            if data1[i][0] < data1[i][j]:
-                flags.append((i,j,data1[i][j]))
-    with open("Flagged_Episodes.pkl", 'wb') as created_file:
-        pickle.dump((seed, flags, control), created_file)
-    
-    data1.insert(0,[control, "8x8", "16x16", "24x24", "info"])
-    #Save results
-    with open("/home/freddy/AICRL/results.csv", 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerows(data1)
-    
+        env.close()
+        obs, info, env = set_episode(seed, 0, "learned", agent)
+        time.sleep(2)
+        done = False
+        while not done:
+            action = int(np.argmax(policies[agent - 1][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])]))
+            print(policies[agent - 1][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])])
+            print(action)
+            print(obs)
+            obs, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+        print(reward)
+    env.close()
