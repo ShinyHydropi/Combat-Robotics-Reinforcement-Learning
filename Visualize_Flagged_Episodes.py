@@ -102,14 +102,14 @@ def set_episode(seed, n, policy, agent):
     for i in range(n):
         obs, info = env.reset(options = policy)
     env.render()
-    print(n,agent)
     return obs, info, env
 
-
 if __name__ == '__main__':
-    for agent in tqdm(range(1,4)):#episode, agent, points in tqdm(flags):
+    indexes = np.random.choice(range(len(flags)), 20, False)
+    for i in tqdm(indexes):
+        episode, agent = flags[i]
         env.close()
-        obs, info, env = set_episode(seed, 0, control, agent)
+        obs, info, env = set_episode(seed, episode, control, agent)
         time.sleep(2)
         done = False
         while not done:
@@ -121,15 +121,11 @@ if __name__ == '__main__':
             done = terminated or truncated
             
         env.close()
-        obs, info, env = set_episode(seed, 0, "learned", agent)
+        obs, info, env = set_episode(seed, episode, "learned", agent)
         time.sleep(2)
         done = False
         while not done:
             action = int(np.argmax(policies[agent - 1][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])]))
-            print(policies[agent - 1][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])])
-            print(action)
-            print(obs)
             obs, reward, terminated, truncated, info = env.step(action)
             done = terminated or truncated
-        print(reward)
     env.close()
