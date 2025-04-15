@@ -101,11 +101,8 @@ if __name__ == '__main__':
     #Collect control policy performance
     performance = [[],[],[],[]]
     info = env.reset()[1]
-    infos = []
-    print(info)
     seed = env.np_random_seed
     for episode in tqdm(range(1000)):
-        infos.append(info)
         done = False
         while not done:
             if control == "aggressive":
@@ -120,20 +117,11 @@ if __name__ == '__main__':
     #Collect learned policy performance
     for agent in range(3):
         env.close()
-        env = gym.make("arena", render_mode="human", size = agent + 1, fps = 4)
-        #current_policy = policies[agent]
+        env = gym.make("arena", render_mode=None, size = agent + 1, adversary = ["aggressive", "defensive"].index(control))
         obs, info = env.reset(seed = seed)
         for episode in tqdm(range(1000)):
-            if episode == 1:
-                env = gym.make("arena", render_mode=None, size = agent + 1, fps =4)
-                env.reset(seed=seed)
-                obs, info = env.reset()
             done = False
             while not done:
-                if episode == 0:
-                    print(obs)
-                    print(policies[agent][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])])
-                    print(int(np.argmax(policies[agent][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])])))
                 action = int(np.argmax(policies[agent][(obs["agent"][0], obs["agent"][1], obs["agent"][2], obs["adversary"][0], obs["adversary"][1], obs["adversary"][2])]))
                 obs, reward, terminated, truncated, info = env.step(action)
                 done = terminated or truncated
@@ -141,14 +129,13 @@ if __name__ == '__main__':
             obs, info = env.reset()
             
     #Transpose the results
-    performance.append(infos)
     data1 = [list(row) for row in zip(*performance)]
     #Create a list of important episodes
     flags = []
     for i in tqdm(range(1000)):
         for j in range(1,4):
             if data1[i][0] < data1[i][j]:
-                flags.append((i,j,data1[i][j]))
+                flags.append((i,j))
     with open("Flagged_Episodes.pkl", 'wb') as created_file:
         pickle.dump((seed, flags, control), created_file)
     
