@@ -10,6 +10,7 @@ import arena
 import math
 import matplotlib.pyplot as plt
 import pickle
+import psutil
 
 adv_type = ""
 while not adv_type in ["aggressive", "defensive", "mixed", "human"]:
@@ -81,6 +82,8 @@ agent = GridAgent(
 )
 
 if __name__ == '__main__':
+    cpu_start = list(psutil.cpu_times())
+    disk_start = list(psutil.disk_io_counters())
     tot_epi_len = 0
     # simulates episodes
     for episode in tqdm(range(n_episodes)):
@@ -111,3 +114,14 @@ if __name__ == '__main__':
 
     ax.set(xlim=(0, n_episodes), xticks = range(0, n_episodes, n_episodes//10), ylim = (-n_episodes, n_episodes))
     plt.savefig("Performance.png")
+    
+    cpu_end = list(psutil.cpu_times())
+    disk_end = list(psutil.disk_io_counters())
+    for i in range(len(cpu_end)):
+        cpu_end[i] -= cpu_start[i]
+    print("CPU times (during execution):")
+    print(cpu_end)
+    for i in range(len(disk_end)):
+        disk_end[i] -= disk_start[i]
+    print("CPU times (during execution):")
+    print(disk_end)

@@ -131,7 +131,7 @@ class NetworkAgent:
         for layer in range(len(self.network.weights)):
             self.network.weights[layer] += updates[layer]
     def decay_epsilon(self):
-        self.epsilon = max(self.final_epsilon, self.epsilon - self.epsilon_decay)
+        self.epsilon *= self.epsilon_decay
 
 learning_rate = 0.01
 n_episodes = 0
@@ -140,8 +140,8 @@ while n_episodes < 10:
         n_episodes = int(input("Number of episodes (integer greater than 9): "))
     except:
         pass
-#n_episodes = 100000#0
-epsilon_decay = 1/50000#14000000
+        
+epsilon_decay = 4**(-1/n_episodes)
 final_epsilon = 0.1
 start_epsilon = 1
 activation = ""

@@ -6,8 +6,11 @@ import gymnasium as gym
 import arena
 import pickle
     
+control = ""
+while not control in ["aggressive", "defensive"]:
+    control = input("Control policy (aggressive, defensive): ")
 
-env = gym.make("arena", render_mode=None, adversary = 1)
+env = gym.make("arena", render_mode=None, adversary = ["aggressive", "defensive"].index(control))
 
 action_to_direction = {
     0: np.array([3.334605707, 0, 0]),
@@ -48,12 +51,12 @@ def line_circle(x1: float, y1: float, x2: float, y2: float, xc: float, yc: float
 policies = []
 for i in range(1,3):
     h,k = 8*i,8
-    with open("/home/freddy/AICRL/Agent_" + str(8*i) + "x" + str(8*i) + "/Current.pkl", "rb") as read_file:
+    with open("/home/freddy/AICRL/Agent_" + str(8*i) + "x" + str(8*i) + "_" + control + "/Current.pkl", "rb") as read_file:
         save_data = pickle.load(read_file)[1]
     policies.append({(a,b,c,d,e,f):save_data[f + k*e + k*h*d + k*h*h*c + k*k*h*h*b + k*k*h**3*a] for a in tqdm(range(h)) for b in range(h) for c in range(k) for d in range(h) for e in range(h) for f in range(k)})
 save_values = ()
 for i in tqdm(range(27)):
-    with open("/home/freddy/AICRL/Agent_24x24/Current-" + str(i) + ".pkl", "rb") as read_file:
+    with open("/home/freddy/AICRL/Agent_24x24_" + control + "/Current-" + str(i) + ".pkl", "rb") as read_file:
         temp_values = pickle.load(read_file)[1]
     save_values += temp_values
 h,k = 24,8
@@ -61,7 +64,7 @@ policies.append({(a,b,c,d,e,f):save_values[f + k*e + k*h*d + k*h*h*c + k*k*h*h*b
 
 
 #Aggressive policy action selection
-def Aggressive_select(pos):
+def aggressive_select(pos):
     agent_location = pos["agent"]
     adversary_location = pos["adversary"]
     dist = 2000
@@ -92,10 +95,6 @@ def defensive_select(pos):
             action = index            
     return action
 
-
-control = ""
-while not control in ["aggressive", "defensive"]:
-    control = input("Control policy (aggressive, defensive): ")
 
 if __name__ == '__main__':
     #Collect control policy performance
@@ -139,7 +138,7 @@ if __name__ == '__main__':
     with open("Flagged_Episodes.pkl", 'wb') as created_file:
         pickle.dump((seed, flags, control), created_file)
     
-    data1.insert(0,[control, "8x8", "16x16", "24x24", "info"])
+    data1.insert(0,[control, "8x8", "16x16", "24x24"])
     #Save results
     with open("/home/freddy/AICRL/results.csv", 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
