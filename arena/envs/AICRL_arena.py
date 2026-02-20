@@ -196,9 +196,7 @@ class ArenaEnv(gym.Env):
                 positive = 1
                 terminated = True
         reward = positive - negative
-#        if (reward == 0 and terminated) or self.circle_point(p3[0], p3[1], 6.5, p6[0], p6[1]):
-#            return 0.1, True
-        return reward, terminated
+        return reward, terminated# or self.circle_point(p3[0], p3[1], 6.5, p6[0], p6[1])
         
     def translate(self, robot, action, path_steps = 1):
         direction = self._action_to_direction[action] * np.array([1 / path_steps, 1, 1])
@@ -244,8 +242,8 @@ class ArenaEnv(gym.Env):
         agent_corners = []
         adversary_corners = []
         for i in range(4):
-            agent_corners.append(self.corner(self._agent_location, i / 2, 10.417))
-            adversary_corners.append(self.corner(self._adversary_location, i / 2, 10.417))
+            agent_corners.append(self.corner(self._agent_location, i / 2, self.window_size/96))
+            adversary_corners.append(self.corner(self._adversary_location, i / 2, self.window_size/96))
         
         canvas = pygame.Surface((self.window_size, self.window_size))
         text = pygame.font.Font(size = 100).render(text, False, "black")
@@ -253,13 +251,13 @@ class ArenaEnv(gym.Env):
         
         pygame.draw.lines(canvas, "blue", True, agent_corners, 3)
         pygame.draw.lines(canvas, "red", True, adversary_corners, 3)
-        pygame.draw.circle(canvas, "blue", self.disk(self._agent_location, 10.417), 33.333)
-        pygame.draw.circle(canvas, "red", self.disk(self._adversary_location, 10.417), 33.333)
+        pygame.draw.circle(canvas, "blue", self.disk(self._agent_location, self.window_size/96), 3.2*self.window_size/96)
+        pygame.draw.circle(canvas, "red", self.disk(self._adversary_location, self.window_size/96), 3.2*self.window_size/96)
         
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
-            self.window.blit(text, text.get_rect(center = (500,500)))
+            self.window.blit(text, text.get_rect(center = (self.window_size/2,self.window_size/2)))
             pygame.event.pump()
             pygame.display.update()
 
